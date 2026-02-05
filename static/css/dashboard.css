@@ -38,6 +38,7 @@ header h1 {
     gap: 20px;
 }
 
+/* logout button */
 .logout-btn {
     background-color: rgba(255,255,255,0.2);
     color: white;
@@ -75,6 +76,7 @@ header h1 {
     color: #333;
 }
 
+/*  create button */
 .create-btn {
     background-color: #666;
     color: white;
@@ -87,6 +89,22 @@ header h1 {
 }
 
 .create-btn:hover {
+    background-color: #555;
+}
+
+/*  Joing button */
+.join-btn {
+    background-color: #666;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
+
+.join-btn:hover {
     background-color: #555;
 }
 
