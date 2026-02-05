@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard - Task Manager</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>Task Manager</h1>
+            <div class="user-menu">
+                <span>Welcome, User</span>
+                <a href="{{ url_for('login') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="section">
+            <div class="section-header">
+                <h2>Task Collections</h2>
+                <button class="create-btn">+ Create</button>
+            </div>
+            <div class="card-grid">
+                <div class="card card-blue">
+                    <h3>Work Tasks</h3>
+                    <p>5 tasks</p>
+                </div>
+                <div class="card card-green">
+                    <h3>Personal</h3>
+                    <p>3 tasks</p>
+                </div>
+                <div class="card card-pink">
+                    <h3>Shopping</h3>
+                    <p>7 tasks</p>
+                </div>
+                <div class="card card-blue">
+                    <h3>Fitness</h3>
+                    <p>2 tasks</p>
+                </div>
+                <div class="card card-green">
+                    <h3>Study</h3>
+                    <p>4 tasks</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="section">
+            <div class="section-header">
+                <h2>Groups</h2>
+                <button class="create-btn">+ Create</button>
+            </div>
+            <div class="card-grid">
+                <div class="card card-blue">
+                    <h3>Team Project</h3>
+                    <p>3 members</p>
+                </div>
+                <div class="card card-green">
+                    <h3>Family</h3>
+                    <p>5 members</p>
+                </div>
+                <div class="card card-pink">
+                    <h3>Study Group</h3>
+                    <p>4 members</p>
+                </div>
+                <div class="card card-blue">
+                    <h3>Work Team</h3>
+                    <p>8 members</p>
+                </div>
+                <div class="card card-green">
+                    <h3>Roommates</h3>
+                    <p>3 members</p>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
