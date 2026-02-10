@@ -39,5 +39,22 @@ class Collection(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relationship to task lists
+    task_lists = db.relationship('TaskList', backref='collection', lazy=True, cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f'<Collection {self.collection_name}>'
+
+
+class TaskList(db.Model):
+    __tablename__ = 'task_list'
+    
+    task_list_id = db.Column(db.Integer, primary_key=True)
+    collection_id = db.Column(db.Integer, db.ForeignKey('collection.collection_id'), nullable=False)
+    list_name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def __repr__(self):
+        return f'<TaskList {self.list_name}>'

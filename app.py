@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Collection
+from models import db, User, Collection, TaskList
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
@@ -125,6 +125,68 @@ def delete_collection(collection_id):
     
     flash('Collection deleted successfully!', 'success')
     return redirect(url_for('dashboard'))
+
+@app.route('/collection/<int:collection_id>')
+@login_required
+def view_collection(collection_id):
+    collection = Collection.query.get_or_404(collection_id)
+    
+    # Make sure the user owns this collection
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to view this collection.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get all task lists for this collection
+    task_lists = TaskList.query.filter_by(collection_id=collection_id).order_by(TaskList.created_at.desc()).all()
+    
+    return render_template('collection.html', collection=collection, task_lists=task_lists)
+
+@app.route('/collection/<int:collection_id>/create_list', methods=['POST'])
+@login_required
+def create_task_list(collection_id):
+    collection = Collection.query.get_or_404(collection_id)
+    
+    # Make sure the user owns this collection
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to modify this collection.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    list_name = request.form.get('list_name')
+    description = request.form.get('description')
+    
+    if not list_name:
+        flash('Task list name is required!', 'error')
+        return redirect(url_for('view_collection', collection_id=collection_id))
+    
+    new_task_list = TaskList(
+        collection_id=collection_id,
+        list_name=list_name,
+        description=description
+    )
+    
+    db.session.add(new_task_list)
+    db.session.commit()
+    
+    flash('Task list created successfully!', 'success')
+    return redirect(url_for('view_collection', collection_id=collection_id))
+
+@app.route('/tasklist/delete/<int:task_list_id>', methods=['POST'])
+@login_required
+def delete_task_list(task_list_id):
+    task_list = TaskList.query.get_or_404(task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Make sure the user owns this collection
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to delete this task list.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    collection_id = task_list.collection_id
+    db.session.delete(task_list)
+    db.session.commit()
+    
+    flash('Task list deleted successfully!', 'success')
+    return redirect(url_for('view_collection', collection_id=collection_id))
 
 @app.route('/logout')
 @login_required

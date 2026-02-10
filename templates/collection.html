@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ collection.collection_name }} - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>{{ collection.collection_name }}</h1>
+            <div class="user-menu">
+                <a href="{{ url_for('dashboard') }}" class="logout-btn">← Back to Dashboard</a>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Collection Description -->
+        {% if collection.description %}
+            <div class="collection-description">
+                <p>{{ collection.description }}</p>
+            </div>
+        {% endif %}
+
+        <section class="section">
+            <div class="section-header">
+                <h2>Task Lists</h2>
+                <button class="create-btn" onclick="openCreateListModal()">+ Create List</button>
+            </div>
+            
+            <div class="card-grid">
+                {% if task_lists %}
+                    {% for task_list in task_lists %}
+                        <div class="card card-green">
+                            <h3>{{ task_list.list_name }}</h3>
+                            <p>{{ task_list.description or 'No description' }}</p>
+                            <p class="task-count">0 tasks</p>
+                            <div class="card-actions">
+                                <form method="POST" action="{{ url_for('delete_task_list', task_list_id=task_list.task_list_id) }}" style="display: inline;">
+                                    <button type="submit" class="delete-btn" onclick="return confirm('Delete this task list?')">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-items">No task lists yet. Click "+ Create List" to add one!</p>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <!-- Create Task List Modal -->
+    <div id="createListModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateListModal()">&times;</span>
+            <h2>Create New Task List</h2>
+            <form method="POST" action="{{ url_for('create_task_list', collection_id=collection.collection_id) }}">
+                <div class="form-group">
+                    <label for="list_name">List Name</label>
+                    <input type="text" id="list_name" name="list_name" placeholder="Enter list name" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description (Optional)</label>
+                    <textarea id="description" name="description" placeholder="Enter description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Create List</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCreateListModal() {
+            document.getElementById('createListModal').style.display = 'block';
+        }
+
+        function closeCreateListModal() {
+            document.getElementById('createListModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('createListModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

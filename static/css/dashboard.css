@@ -38,7 +38,6 @@ header h1 {
     gap: 20px;
 }
 
-/* logout button */
 .logout-btn {
     background-color: rgba(255,255,255,0.2);
     color: white;
@@ -76,7 +75,6 @@ header h1 {
     color: #333;
 }
 
-/*  create button */
 .create-btn {
     background-color: #666;
     color: white;
@@ -89,22 +87,6 @@ header h1 {
 }
 
 .create-btn:hover {
-    background-color: #555;
-}
-
-/*  Joing button */
-.join-btn {
-    background-color: #666;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.3s;
-}
-
-.join-btn:hover {
     background-color: #555;
 }
 
@@ -152,19 +134,6 @@ header h1 {
 
 .card-pink {
     background-color: #f7c5d5;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .card-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    }
-    
-    .header-content {
-        flex-direction: column;
-        gap: 15px;
-        text-align: center;
-    }
 }
 
 /* Flash Messages */
@@ -294,4 +263,38 @@ header h1 {
 
 .modal-content .btn:hover {
     background-color: #555;
+}
+
+/* Collection description */
+.collection-description {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 30px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.collection-description p {
+    color: #666;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.task-count {
+    font-size: 13px;
+    color: #999;
+    margin-top: 5px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .card-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    
+    .header-content {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
 }

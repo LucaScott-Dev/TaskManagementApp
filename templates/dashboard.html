@@ -36,11 +36,11 @@
             <div class="card-grid">
                 {% if collections %}
                     {% for collection in collections %}
-                        <div class="card card-blue">
+                        <div class="card card-blue" onclick="window.location.href='{{ url_for('view_collection', collection_id=collection.collection_id) }}'">
                             <h3>{{ collection.collection_name }}</h3>
                             <p>{{ collection.description or 'No description' }}</p>
                             <div class="card-actions">
-                                <form method="POST" action="{{ url_for('delete_collection', collection_id=collection.collection_id) }}" style="display: inline;">
+                                <form method="POST" action="{{ url_for('delete_collection', collection_id=collection.collection_id) }}" style="display: inline;" onclick="event.stopPropagation()">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Delete this collection?')">Delete</button>
                                 </form>
                             </div>
