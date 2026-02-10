@@ -8,21 +8,25 @@ db = SQLAlchemy()
 class User(UserMixin, db.Model):
     __tablename__ = 'user'
     
+    # Basic info
     user_id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    user_role = db.Column(db.String(20), default='user')
+    user_role = db.Column(db.String(20), default='user')  # might add admin later
     
-    # Relationships
+    # Links user to their collections
     collections = db.relationship('Collection', backref='owner', lazy=True, cascade='all, delete-orphan')
     
     def set_password(self, password):
+        # Hash password instead of storing plain text
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
+        # Check if password matches the hash
         return check_password_hash(self.password_hash, password)
     
     def get_id(self):
+        # Flask-Login needs this to work properly
         return str(self.user_id)
     
     def __repr__(self):
@@ -39,7 +43,7 @@ class Collection(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Relationship to task lists
+    # Each collection can have multiple task lists
     task_lists = db.relationship('TaskList', backref='collection', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):

@@ -1,3 +1,4 @@
+/* Reset */
 * {
     margin: 0;
     padding: 0;
@@ -13,6 +14,7 @@ body {
     min-height: 100vh;
 }
 
+/* Main login/register container */
 .login-container {
     background: white;
     padding: 40px;
@@ -27,6 +29,7 @@ h2 {
     margin-bottom: 30px;
 }
 
+/* Form styling */
 .form-group {
     margin-bottom: 20px;
 }
@@ -52,6 +55,7 @@ input[type="password"]:focus {
     border-color: #666;
 }
 
+/* Submit button */
 .btn {
     width: 100%;
     padding: 12px;
@@ -67,6 +71,7 @@ input[type="password"]:focus {
     background-color: #555;
 }
 
+/* Links below form */
 .links {
     text-align: center;
     margin-top: 20px;
@@ -87,6 +92,7 @@ input[type="password"]:focus {
     text-decoration: underline;
 }
 
+/* Success/error messages */
 .alert {
     padding: 12px;
     margin-bottom: 20px;
@@ -95,6 +101,7 @@ input[type="password"]:focus {
     text-align: center; 
 }
 
+/* Error messages under inputs */
 .error-message {
     display: block;
     color: #d32f2f;

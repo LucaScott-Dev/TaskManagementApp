@@ -18,7 +18,7 @@
     </header>
 
     <main class="container">
-        <!-- Flash Messages -->
+        <!-- Flash messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -27,6 +27,7 @@
             {% endif %}
         {% endwith %}
 
+        <!-- Collections section -->
         <section class="section">
             <div class="section-header">
                 <h2>Task Collections</h2>
@@ -40,6 +41,7 @@
                             <h3>{{ collection.collection_name }}</h3>
                             <p>{{ collection.description or 'No description' }}</p>
                             <div class="card-actions">
+                                <!-- Stop click from opening collection when deleting -->
                                 <form method="POST" action="{{ url_for('delete_collection', collection_id=collection.collection_id) }}" style="display: inline;" onclick="event.stopPropagation()">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Delete this collection?')">Delete</button>
                                 </form>
@@ -52,6 +54,7 @@
             </div>
         </section>
 
+        <!-- Groups section (not implemented yet) -->
         <section class="section">
             <div class="section-header">
                 <h2>Groups</h2>
@@ -63,7 +66,7 @@
         </section>
     </main>
 
-    <!-- Create Collection Modal -->
+    <!-- Modal for creating new collection -->
     <div id="createModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeCreateModal()">&times;</span>
@@ -91,7 +94,7 @@
             document.getElementById('createModal').style.display = 'none';
         }
 
-        // Close modal when clicking outside
+        // Close modal if user clicks outside of it
         window.onclick = function(event) {
             const modal = document.getElementById('createModal');
             if (event.target == modal) {

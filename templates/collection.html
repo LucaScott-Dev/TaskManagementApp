@@ -18,7 +18,6 @@
     </header>
 
     <main class="container">
-        <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
@@ -27,7 +26,7 @@
             {% endif %}
         {% endwith %}
 
-        <!-- Collection Description -->
+        <!-- Show collection description if it exists -->
         {% if collection.description %}
             <div class="collection-description">
                 <p>{{ collection.description }}</p>
@@ -61,7 +60,7 @@
         </section>
     </main>
 
-    <!-- Create Task List Modal -->
+    <!-- Modal for creating task list -->
     <div id="createListModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeCreateListModal()">&times;</span>
