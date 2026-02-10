@@ -1,6 +1,6 @@
 from flask import Flask, render_template, redirect, url_for, flash, request
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User
+from models import db, User, Collection
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
@@ -84,7 +84,47 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    return render_template('dashboard.html', username=current_user.username)
+    # Get all collections for the current user
+    collections = Collection.query.filter_by(user_id=current_user.user_id).order_by(Collection.created_at.desc()).all()
+    return render_template('dashboard.html', username=current_user.username, collections=collections)
+
+@app.route('/collection/create', methods=['POST'])
+@login_required
+def create_collection():
+    collection_name = request.form.get('collection_name')
+    description = request.form.get('description')
+    
+    if not collection_name:
+        flash('Collection name is required!', 'error')
+        return redirect(url_for('dashboard'))
+    
+    new_collection = Collection(
+        user_id=current_user.user_id,
+        collection_name=collection_name,
+        description=description
+    )
+    
+    db.session.add(new_collection)
+    db.session.commit()
+    
+    flash('Collection created successfully!', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/collection/delete/<int:collection_id>', methods=['POST'])
+@login_required
+def delete_collection(collection_id):
+    collection = Collection.query.get_or_404(collection_id)
+    
+    # Make sure the user owns this collection
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to delete this collection.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    db.session.delete(collection)
+    db.session.commit()
+    
+    flash('Collection deleted successfully!', 'success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/logout')
 @login_required

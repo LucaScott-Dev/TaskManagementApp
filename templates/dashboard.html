@@ -18,32 +18,37 @@
     </header>
 
     <main class="container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
         <section class="section">
             <div class="section-header">
                 <h2>Task Collections</h2>
-                <button class="create-btn">+ Create</button>
+                <button class="create-btn" onclick="openCreateModal()">+ Create</button>
             </div>
+            
             <div class="card-grid">
-                <div class="card card-blue">
-                    <h3>Work Tasks</h3>
-                    <p>5 tasks</p>
-                </div>
-                <div class="card card-green">
-                    <h3>Personal</h3>
-                    <p>3 tasks</p>
-                </div>
-                <div class="card card-pink">
-                    <h3>Shopping</h3>
-                    <p>7 tasks</p>
-                </div>
-                <div class="card card-blue">
-                    <h3>Fitness</h3>
-                    <p>2 tasks</p>
-                </div>
-                <div class="card card-green">
-                    <h3>Study</h3>
-                    <p>4 tasks</p>
-                </div>
+                {% if collections %}
+                    {% for collection in collections %}
+                        <div class="card card-blue">
+                            <h3>{{ collection.collection_name }}</h3>
+                            <p>{{ collection.description or 'No description' }}</p>
+                            <div class="card-actions">
+                                <form method="POST" action="{{ url_for('delete_collection', collection_id=collection.collection_id) }}" style="display: inline;">
+                                    <button type="submit" class="delete-btn" onclick="return confirm('Delete this collection?')">Delete</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-items">No collections yet. Click "+ Create" to add one!</p>
+                {% endif %}
             </div>
         </section>
 
@@ -51,31 +56,48 @@
             <div class="section-header">
                 <h2>Groups</h2>
                 <button class="create-btn">+ Create</button>
-                <!-- <button class="join-btn">Join</button> -->
             </div>
             <div class="card-grid">
-                <div class="card card-blue">
-                    <h3>Team Project</h3>
-                    <p>3 members</p>
-                </div>
-                <div class="card card-green">
-                    <h3>Family</h3>
-                    <p>5 members</p>
-                </div>
-                <div class="card card-pink">
-                    <h3>Study Group</h3>
-                    <p>4 members</p>
-                </div>
-                <div class="card card-blue">
-                    <h3>Work Team</h3>
-                    <p>8 members</p>
-                </div>
-                <div class="card card-green">
-                    <h3>Roommates</h3>
-                    <p>3 members</p>
-                </div>
+                <p class="no-items">No groups yet. Coming soon!</p>
             </div>
         </section>
     </main>
+
+    <!-- Create Collection Modal -->
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateModal()">&times;</span>
+            <h2>Create New Collection</h2>
+            <form method="POST" action="{{ url_for('create_collection') }}">
+                <div class="form-group">
+                    <label for="collection_name">Collection Name</label>
+                    <input type="text" id="collection_name" name="collection_name" placeholder="Enter collection name" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description (Optional)</label>
+                    <textarea id="description" name="description" placeholder="Enter description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Create Collection</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCreateModal() {
+            document.getElementById('createModal').style.display = 'block';
+        }
+
+        function closeCreateModal() {
+            document.getElementById('createModal').style.display = 'none';
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('createModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
 </body>
 </html>
