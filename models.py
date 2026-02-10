@@ -60,5 +60,25 @@ class TaskList(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Each task list can have multiple tasks
+    tasks = db.relationship('Task', backref='task_list', lazy=True, cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f'<TaskList {self.list_name}>'
+
+
+class Task(db.Model):
+    __tablename__ = 'task'
+    
+    task_id = db.Column(db.Integer, primary_key=True)
+    task_list_id = db.Column(db.Integer, db.ForeignKey('task_list.task_list_id'), nullable=False)
+    task_name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    status = db.Column(db.String(20), default='todo')  # todo, doing, completed
+    priority = db.Column(db.String(20))
+    due_date = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    completed_at = db.Column(db.DateTime)
+    
+    def __repr__(self):
+        return f'<Task {self.task_name}>'

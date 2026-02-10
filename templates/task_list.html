@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ task_list.list_name }} - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/task_board.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>{{ task_list.list_name }}</h1>
+            <div class="user-menu">
+                <a href="{{ url_for('view_collection', collection_id=collection.collection_id) }}" class="logout-btn">← Back to {{ collection.collection_name }}</a>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if task_list.description %}
+            <div class="list-description">
+                <p>{{ task_list.description }}</p>
+            </div>
+        {% endif %}
+
+        <!-- Trello-style board -->
+        <div class="board">
+            <!-- To Do Column -->
+            <div class="column">
+                <div class="column-header">
+                    <h3>To Do</h3>
+                    <span class="task-count">{{ todo_tasks|length }}</span>
+                </div>
+                <button class="add-task-btn" onclick="openAddTaskModal()">+ Add Task</button>
+                <div class="tasks-container">
+                    {% for task in todo_tasks %}
+                        <div class="task-card">
+                            <div class="task-header">
+                                <h4>{{ task.task_name }}</h4>
+                                <div class="task-controls">
+                                    <button class="edit-task" onclick="openEditTaskModal({{ task.task_id }}, '{{ task.task_name }}', '{{ task.description or '' }}')">
+                                        <!-- Pencil icon -->
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="delete-task" onclick="deleteTask({{ task.task_id }})">&times;</button>
+                                </div>
+                            </div>
+                            {% if task.description %}
+                                <p class="task-description">{{ task.description }}</p>
+                            {% endif %}
+                            <div class="task-actions">
+                                <button class="move-btn" onclick="moveTask({{ task.task_id }}, 'doing')">Move to Doing →</button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-tasks">No tasks yet</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Doing Column -->
+            <div class="column">
+                <div class="column-header">
+                    <h3>Doing</h3>
+                    <span class="task-count">{{ doing_tasks|length }}</span>
+                </div>
+                <div class="tasks-container">
+                    {% for task in doing_tasks %}
+                        <div class="task-card task-doing">
+                            <div class="task-header">
+                                <h4>{{ task.task_name }}</h4>
+                                <div class="task-controls">
+                                    <button class="edit-task" onclick="openEditTaskModal({{ task.task_id }}, '{{ task.task_name }}', '{{ task.description or '' }}')">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="delete-task" onclick="deleteTask({{ task.task_id }})">&times;</button>
+                                </div>
+                            </div>
+                            {% if task.description %}
+                                <p class="task-description">{{ task.description }}</p>
+                            {% endif %}
+                            <div class="task-actions">
+                                <button class="move-btn-back" onclick="moveTask({{ task.task_id }}, 'todo')">← To Do</button>
+                                <button class="move-btn" onclick="moveTask({{ task.task_id }}, 'completed')">Complete →</button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-tasks">No tasks in progress</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Completed Column -->
+            <div class="column">
+                <div class="column-header">
+                    <h3>Completed</h3>
+                    <span class="task-count">{{ completed_tasks|length }}</span>
+                </div>
+                <div class="tasks-container">
+                    {% for task in completed_tasks %}
+                        <div class="task-card task-completed">
+                            <div class="task-header">
+                                <h4>{{ task.task_name }}</h4>
+                                <div class="task-controls">
+                                    <button class="edit-task" onclick="openEditTaskModal({{ task.task_id }}, '{{ task.task_name }}', '{{ task.description or '' }}')">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                        </svg>
+                                    </button>
+                                    <button class="delete-task" onclick="deleteTask({{ task.task_id }})">&times;</button>
+                                </div>
+                            </div>
+                            {% if task.description %}
+                                <p class="task-description">{{ task.description }}</p>
+                            {% endif %}
+                            <div class="task-actions">
+                                <button class="move-btn-back" onclick="moveTask({{ task.task_id }}, 'doing')">← Back to Doing</button>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="no-tasks">No completed tasks</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Task Modal -->
+    <div id="addTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddTaskModal()">&times;</span>
+            <h2>Add New Task</h2>
+            <form method="POST" action="{{ url_for('create_task', task_list_id=task_list.task_list_id) }}">
+                <div class="form-group">
+                    <label for="task_name">Task Name</label>
+                    <input type="text" id="task_name" name="task_name" placeholder="Enter task name" required>
+                </div>
+                <div class="form-group">
+                    <label for="description">Description (Optional)</label>
+                    <textarea id="description" name="description" placeholder="Enter description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Add Task</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEditTaskModal()">&times;</span>
+            <h2>Edit Task</h2>
+            <form method="POST" id="editTaskForm">
+                <div class="form-group">
+                    <label for="edit_task_name">Task Name</label>
+                    <input type="text" id="edit_task_name" name="task_name" placeholder="Enter task name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit_description">Description (Optional)</label>
+                    <textarea id="edit_description" name="description" placeholder="Enter description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Save Changes</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'block';
+        }
+
+        function closeAddTaskModal() {
+            document.getElementById('addTaskModal').style.display = 'none';
+        }
+
+        function openEditTaskModal(taskId, taskName, taskDescription) {
+            // Set the form action to the correct edit URL
+            document.getElementById('editTaskForm').action = `/task/edit/${taskId}`;
+            
+            // Fill in the current values
+            document.getElementById('edit_task_name').value = taskName;
+            document.getElementById('edit_description').value = taskDescription;
+            
+            // Show the modal
+            document.getElementById('editTaskModal').style.display = 'block';
+        }
+
+        function closeEditTaskModal() {
+            document.getElementById('editTaskModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const addModal = document.getElementById('addTaskModal');
+            const editModal = document.getElementById('editTaskModal');
+            
+            if (event.target == addModal) {
+                addModal.style.display = 'none';
+            }
+            if (event.target == editModal) {
+                editModal.style.display = 'none';
+            }
+        }
+
+        // Move task between columns
+        function moveTask(taskId, newStatus) {
+            fetch(`/task/${taskId}/move/${newStatus}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // Delete task
+        function deleteTask(taskId) {
+            if (confirm('Are you sure you want to delete this task?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = `/task/delete/${taskId}`;
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
-from flask import Flask, render_template, redirect, url_for, flash, request
+from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Collection, TaskList
+from models import db, User, Collection, TaskList, Task
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -213,6 +214,141 @@ def delete_task_list(task_list_id):
     
     flash('Task list deleted successfully!', 'success')
     return redirect(url_for('view_collection', collection_id=collection_id))
+
+
+@app.route('/tasklist/<int:task_list_id>')
+@login_required
+def view_task_list(task_list_id):
+    task_list = TaskList.query.get_or_404(task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Security check
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to view this task list.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get tasks organized by status
+    todo_tasks = Task.query.filter_by(task_list_id=task_list_id, status='todo').order_by(Task.created_at.desc()).all()
+    doing_tasks = Task.query.filter_by(task_list_id=task_list_id, status='doing').order_by(Task.created_at.desc()).all()
+    completed_tasks = Task.query.filter_by(task_list_id=task_list_id, status='completed').order_by(Task.completed_at.desc()).all()
+    
+    return render_template('task_list.html', 
+                         task_list=task_list, 
+                         collection=collection,
+                         todo_tasks=todo_tasks,
+                         doing_tasks=doing_tasks,
+                         completed_tasks=completed_tasks)
+
+
+# ========== TASK ROUTES ==========
+
+@app.route('/tasklist/<int:task_list_id>/create_task', methods=['POST'])
+@login_required
+def create_task(task_list_id):
+    task_list = TaskList.query.get_or_404(task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Security check
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to add tasks here.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    task_name = request.form.get('task_name')
+    description = request.form.get('description')
+    
+    if not task_name:
+        flash('Task name is required!', 'error')
+        return redirect(url_for('view_task_list', task_list_id=task_list_id))
+    
+    # Create the task (defaults to 'todo' status)
+    new_task = Task(
+        task_list_id=task_list_id,
+        task_name=task_name,
+        description=description,
+        status='todo'
+    )
+    
+    db.session.add(new_task)
+    db.session.commit()
+    
+    flash('Task created successfully!', 'success')
+    return redirect(url_for('view_task_list', task_list_id=task_list_id))
+
+
+@app.route('/task/edit/<int:task_id>', methods=['POST'])
+@login_required
+def edit_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    task_list = TaskList.query.get(task.task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Security check
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to edit this task.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    task_name = request.form.get('task_name')
+    description = request.form.get('description')
+    
+    if not task_name:
+        flash('Task name is required!', 'error')
+        return redirect(url_for('view_task_list', task_list_id=task.task_list_id))
+    
+    # Update the task
+    task.task_name = task_name
+    task.description = description
+    db.session.commit()
+    
+    flash('Task updated successfully!', 'success')
+    return redirect(url_for('view_task_list', task_list_id=task.task_list_id))
+
+
+@app.route('/task/<int:task_id>/move/<string:status>', methods=['POST'])
+@login_required
+def move_task(task_id, status):
+    task = Task.query.get_or_404(task_id)
+    task_list = TaskList.query.get(task.task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Security check
+    if collection.user_id != current_user.user_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Valid statuses
+    if status not in ['todo', 'doing', 'completed']:
+        return jsonify({'error': 'Invalid status'}), 400
+    
+    task.status = status
+    
+    # Set completed_at timestamp if moving to completed
+    if status == 'completed':
+        task.completed_at = datetime.utcnow()
+    else:
+        task.completed_at = None
+    
+    db.session.commit()
+    
+    return jsonify({'success': True})
+
+
+@app.route('/task/delete/<int:task_id>', methods=['POST'])
+@login_required
+def delete_task(task_id):
+    task = Task.query.get_or_404(task_id)
+    task_list = TaskList.query.get(task.task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Security check
+    if collection.user_id != current_user.user_id:
+        flash('You do not have permission to delete this task.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    task_list_id = task.task_list_id
+    db.session.delete(task)
+    db.session.commit()
+    
+    flash('Task deleted successfully!', 'success')
+    return redirect(url_for('view_task_list', task_list_id=task_list_id))
 
 
 @app.route('/logout')

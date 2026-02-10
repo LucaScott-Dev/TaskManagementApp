@@ -42,12 +42,12 @@
             <div class="card-grid">
                 {% if task_lists %}
                     {% for task_list in task_lists %}
-                        <div class="card card-green">
+                        <div class="card card-green" onclick="window.location.href='{{ url_for('view_task_list', task_list_id=task_list.task_list_id) }}'">
                             <h3>{{ task_list.list_name }}</h3>
                             <p>{{ task_list.description or 'No description' }}</p>
-                            <p class="task-count">0 tasks</p>
+                            <p class="task-count">{{ task_list.tasks|length }} tasks</p>
                             <div class="card-actions">
-                                <form method="POST" action="{{ url_for('delete_task_list', task_list_id=task_list.task_list_id) }}" style="display: inline;">
+                                <form method="POST" action="{{ url_for('delete_task_list', task_list_id=task_list.task_list_id) }}" style="display: inline;" onclick="event.stopPropagation()">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Delete this task list?')">Delete</button>
                                 </form>
                             </div>
