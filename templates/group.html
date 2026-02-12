@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ group.group_name }} - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>{{ group.group_name }}</h1>
+            <div class="user-menu">
+                <a href="{{ url_for('dashboard') }}" class="logout-btn">← Back to Dashboard</a>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if group.description %}
+            <div class="collection-description">
+                <p>{{ group.description }}</p>
+            </div>
+        {% endif %}
+
+        <!-- Group Members Section -->
+        <section class="section">
+            <div class="section-header">
+                <h2>Group Members ({{ members|length }})</h2>
+                {% if is_leader %}
+                    <button class="create-btn" onclick="openAddMemberModal()">+ Add Member</button>
+                {% endif %}
+            </div>
+            
+            <div class="members-list">
+                {% for user, membership in members %}
+                    <div class="member-card">
+                        <div class="member-info">
+                            <h4>{{ user.username }}</h4>
+                            {% if membership.role == 'leader' %}
+                                <span class="role-badge leader-badge">Leader</span>
+                            {% else %}
+                                <span class="role-badge">Member</span>
+                            {% endif %}
+                        </div>
+                        {% if is_leader and user.user_id != current_user.user_id %}
+                            <form method="POST" action="{{ url_for('remove_group_member', group_id=group.group_id, user_id=user.user_id) }}" style="display: inline;">
+                                <button type="submit" class="delete-btn" onclick="return confirm('Remove this member?')">Remove</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <!-- Shared Task Lists Section -->
+        <section class="section">
+            <div class="section-header">
+                <h2>Shared Task Lists</h2>
+            </div>
+            
+            {% if shared_lists %}
+                <div class="card-grid">
+                    {% for task_list, share, collection, shared_by_user in shared_lists %}
+                        <div class="card card-green" onclick="window.location.href='{{ url_for('view_task_list', task_list_id=task_list.task_list_id) }}'">
+                            <h3>{{ task_list.list_name }}</h3>
+                            <p>{{ task_list.description or 'No description' }}</p>
+                            <p class="task-count">{{ task_list.tasks|length }} tasks</p>
+                            <div class="shared-info">
+                                <span style="font-size: 12px; color: #666;">Shared by {{ shared_by_user.username }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-items">No task lists shared with this group yet.</p>
+            {% endif %}
+        </section>
+    </main>
+
+    <!-- Add Member Modal -->
+    {% if is_leader %}
+    <div id="addMemberModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAddMemberModal()">&times;</span>
+            <h2>Add Group Member</h2>
+            <form method="POST" action="{{ url_for('add_group_member', group_id=group.group_id) }}">
+                <div class="form-group">
+                    <label for="user_id">Select User</label>
+                    <select id="user_id" name="user_id" required>
+                        <option value="">Choose a user...</option>
+                        {% for user in available_users %}
+                            <option value="{{ user.user_id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn">Add Member</button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <script>
+        function openAddMemberModal() {
+            document.getElementById('addMemberModal').style.display = 'block';
+        }
+
+        function closeAddMemberModal() {
+            document.getElementById('addMemberModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('addMemberModal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

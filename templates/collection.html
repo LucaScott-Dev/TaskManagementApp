@@ -46,7 +46,16 @@
                             <h3>{{ task_list.list_name }}</h3>
                             <p>{{ task_list.description or 'No description' }}</p>
                             <p class="task-count">{{ task_list.tasks|length }} tasks</p>
+                            
+                            <!-- Show which groups it's shared with -->
+                            {% if task_list.shared_with_groups %}
+                                <div class="shared-indicator">
+                                    <span>🔗 Shared with {{ task_list.shared_with_groups|length }} group(s)</span>
+                                </div>
+                            {% endif %}
+                            
                             <div class="card-actions">
+                                <button class="share-btn" onclick="event.stopPropagation(); openShareModal({{ task_list.task_list_id }}, '{{ task_list.list_name }}')">Share</button>
                                 <form method="POST" action="{{ url_for('delete_task_list', task_list_id=task_list.task_list_id) }}" style="display: inline;" onclick="event.stopPropagation()">
                                     <button type="submit" class="delete-btn" onclick="return confirm('Delete this task list?')">Delete</button>
                                 </form>
@@ -79,7 +88,37 @@
         </div>
     </div>
 
+    <!-- Modal for sharing task list -->
+    <div id="shareModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeShareModal()">&times;</span>
+            <h2>Share Task List</h2>
+            <p id="shareListName" style="color: #666; margin-bottom: 20px;"></p>
+            
+            <form method="POST" id="shareForm">
+                <div class="form-group">
+                    <label for="group_id">Share with Group</label>
+                    <select id="group_id" name="group_id" required>
+                        <option value="">Choose a group...</option>
+                        {% for group in user_groups %}
+                            <option value="{{ group.group_id }}">{{ group.group_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn">Share</button>
+            </form>
+
+            <!-- Show currently shared groups -->
+            <div id="currentShares" style="margin-top: 30px;">
+                <h3 style="font-size: 16px; margin-bottom: 15px; color: #333;">Currently Shared With:</h3>
+                <div id="sharedGroupsList"></div>
+            </div>
+        </div>
+    </div>
+
     <script>
+        let currentTaskListId = null;
+
         function openCreateListModal() {
             document.getElementById('createListModal').style.display = 'block';
         }
@@ -88,10 +127,58 @@
             document.getElementById('createListModal').style.display = 'none';
         }
 
+        function openShareModal(taskListId, taskListName) {
+            currentTaskListId = taskListId;
+            document.getElementById('shareListName').textContent = 'Sharing: ' + taskListName;
+            document.getElementById('shareForm').action = `/tasklist/share/${taskListId}`;
+            
+            // Load currently shared groups
+            loadSharedGroups(taskListId);
+            
+            document.getElementById('shareModal').style.display = 'block';
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
+        function loadSharedGroups(taskListId) {
+            // Get the task list data from the page
+            const taskListCards = document.querySelectorAll('.card-green');
+            const sharedGroupsList = document.getElementById('sharedGroupsList');
+            
+            // Find the task list and check if it has shares
+            {% for task_list in task_lists %}
+                if ({{ task_list.task_list_id }} === taskListId) {
+                    {% if task_list.shared_with_groups %}
+                        let html = '';
+                        {% for share in task_list.shared_with_groups %}
+                            html += `
+                                <div class="shared-group-item">
+                                    <span>{{ share.group.group_name }}</span>
+                                    <form method="POST" action="/tasklist/unshare/{{ task_list.task_list_id }}/{{ share.group_id }}" style="display: inline;">
+                                        <button type="submit" class="unshare-btn" onclick="return confirm('Unshare from this group?')">Unshare</button>
+                                    </form>
+                                </div>
+                            `;
+                        {% endfor %}
+                        sharedGroupsList.innerHTML = html;
+                    {% else %}
+                        sharedGroupsList.innerHTML = '<p style="color: #999; font-style: italic;">Not shared with any groups yet</p>';
+                    {% endif %}
+                }
+            {% endfor %}
+        }
+
         window.onclick = function(event) {
-            const modal = document.getElementById('createListModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
+            const createModal = document.getElementById('createListModal');
+            const shareModal = document.getElementById('shareModal');
+            
+            if (event.target == createModal) {
+                createModal.style.display = 'none';
+            }
+            if (event.target == shareModal) {
+                shareModal.style.display = 'none';
             }
         }
     </script>

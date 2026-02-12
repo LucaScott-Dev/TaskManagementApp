@@ -32,6 +32,13 @@
             </div>
         {% endif %}
 
+        <!-- Show if this is a shared list -->
+        {% if not is_owner %}
+            <div class="alert alert-info">
+                📁 This is a shared task list. You can view and work on tasks, but only the owner can delete the list.
+            </div>
+        {% endif %}
+
         <!-- Trello-style board -->
         <div class="board">
             <!-- To Do Column -->
@@ -128,6 +135,9 @@
                             </div>
                             {% if task.description %}
                                 <p class="task-description">{{ task.description }}</p>
+                            {% endif %}
+                            {% if task.completed_by %}
+                                <p class="completed-by">✓ Completed by {{ task.completed_by.username }}</p>
                             {% endif %}
                             <div class="task-actions">
                                 <button class="move-btn-back" onclick="moveTask({{ task.task_id }}, 'doing')">← Back to Doing</button>

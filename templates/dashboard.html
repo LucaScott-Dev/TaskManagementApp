@@ -54,14 +54,34 @@
             </div>
         </section>
 
-        <!-- Groups section (not implemented yet) -->
+        <!-- Groups section -->
         <section class="section">
             <div class="section-header">
                 <h2>Groups</h2>
-                <button class="create-btn">+ Create</button>
+                <button class="create-btn" onclick="openCreateGroupModal()">+ Create</button>
             </div>
             <div class="card-grid">
-                <p class="no-items">No groups yet. Coming soon!</p>
+                {% if groups %}
+                    {% for group in groups %}
+                        <div class="card card-pink" onclick="window.location.href='{{ url_for('view_group', group_id=group.group_id) }}'">
+                            <h3>{{ group.group_name }}</h3>
+                            <p>{{ group.description or 'No description' }}</p>
+                            <p class="task-count">{{ group.members|length }} members</p>
+                            {% if group.shared_task_lists %}
+                                <p class="task-count">{{ group.shared_task_lists|length }} shared lists</p>
+                            {% endif %}
+                            {% if group.leader_id == current_user.user_id %}
+                                <div class="card-actions">
+                                    <form method="POST" action="{{ url_for('delete_group', group_id=group.group_id) }}" style="display: inline;" onclick="event.stopPropagation()">
+                                        <button type="submit" class="delete-btn" onclick="return confirm('Delete this group?')">Delete</button>
+                                    </form>
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="no-items">No groups yet. Click "+ Create" to add one!</p>
+                {% endif %}
             </div>
         </section>
     </main>
@@ -85,6 +105,25 @@
         </div>
     </div>
 
+    <!-- Modal for creating new group -->
+    <div id="createGroupModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateGroupModal()">&times;</span>
+            <h2>Create New Group</h2>
+            <form method="POST" action="{{ url_for('create_group') }}">
+                <div class="form-group">
+                    <label for="group_name">Group Name</label>
+                    <input type="text" id="group_name" name="group_name" placeholder="Enter group name" required>
+                </div>
+                <div class="form-group">
+                    <label for="group_description">Description (Optional)</label>
+                    <textarea id="group_description" name="description" placeholder="Enter description" rows="3"></textarea>
+                </div>
+                <button type="submit" class="btn">Create Group</button>
+            </form>
+        </div>
+    </div>
+
     <script>
         function openCreateModal() {
             document.getElementById('createModal').style.display = 'block';
@@ -94,11 +133,24 @@
             document.getElementById('createModal').style.display = 'none';
         }
 
+        function openCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'block';
+        }
+
+        function closeCreateGroupModal() {
+            document.getElementById('createGroupModal').style.display = 'none';
+        }
+
         // Close modal if user clicks outside of it
         window.onclick = function(event) {
-            const modal = document.getElementById('createModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
+            const collectionModal = document.getElementById('createModal');
+            const groupModal = document.getElementById('createGroupModal');
+            
+            if (event.target == collectionModal) {
+                collectionModal.style.display = 'none';
+            }
+            if (event.target == groupModal) {
+                groupModal.style.display = 'none';
             }
         }
     </script>

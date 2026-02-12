@@ -1,12 +1,12 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Collection, TaskList, Task
+from models import db, User, Collection, TaskList, Task, Group, GroupMember, SharedTaskList
 from datetime import datetime
 
 app = Flask(__name__)
 
 # Configuration
-app.config['SECRET_KEY'] = 'your-secret-key-change-this'  # TODO: change this to something more secure
+app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///taskmanager.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -16,7 +16,7 @@ db.init_app(app)
 # Set up login manager for user authentication
 login_manager = LoginManager()
 login_manager.init_app(app)
-login_manager.login_view = 'login'  # redirect here if not logged in
+login_manager.login_view = 'login'
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -27,11 +27,31 @@ with app.app_context():
     db.create_all()
 
 
+# Helper function to check if user has access to a task list
+def user_has_access_to_task_list(user_id, task_list_id):
+    task_list = TaskList.query.get(task_list_id)
+    if not task_list:
+        return False
+    
+    collection = Collection.query.get(task_list.collection_id)
+    
+    # Owner always has access
+    if collection.user_id == user_id:
+        return True
+    
+    # Check if shared with any group the user is in
+    shared = db.session.query(SharedTaskList).join(GroupMember).filter(
+        SharedTaskList.task_list_id == task_list_id,
+        GroupMember.user_id == user_id
+    ).first()
+    
+    return shared is not None
+
+
 # ========== ROUTES ==========
 
 @app.route('/')
 def home():
-    # Redirect to dashboard if logged in, otherwise go to login
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     return redirect(url_for('login'))
@@ -39,7 +59,6 @@ def home():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    # If already logged in, just go to dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
     
@@ -49,7 +68,6 @@ def login():
         username = request.form.get('username')
         password = request.form.get('password')
         
-        # Try to find the user
         user = User.query.filter_by(username=username).first()
         
         if not user:
@@ -57,7 +75,6 @@ def login():
         elif not user.check_password(password):
             errors['password'] = 'Incorrect password'
         else:
-            # Login successful
             login_user(user)
             return redirect(url_for('dashboard'))
     
@@ -76,15 +93,12 @@ def register():
         password = request.form.get('password')
         confirm_password = request.form.get('confirm-password')
         
-        # Check if username already exists
         if User.query.filter_by(username=username).first():
             errors['username'] = 'Username already exists'
         
-        # Make sure passwords match
         if password != confirm_password:
             errors['confirm-password'] = 'Passwords do not match'
         
-        # Create the user if no errors
         if not errors:
             new_user = User(username=username)
             new_user.set_password(password)
@@ -100,10 +114,21 @@ def register():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    # Get all collections for current user, newest first
     collections = Collection.query.filter_by(user_id=current_user.user_id).order_by(Collection.created_at.desc()).all()
-    return render_template('dashboard.html', username=current_user.username, collections=collections)
-
+    
+    owned_groups = Group.query.filter_by(leader_id=current_user.user_id).all()
+    
+    member_groups = db.session.query(Group).join(GroupMember).filter(
+        GroupMember.user_id == current_user.user_id,
+        Group.leader_id != current_user.user_id
+    ).all()
+    
+    all_groups = owned_groups + member_groups
+        
+    return render_template('dashboard.html', 
+                         username=current_user.username, 
+                         collections=collections,
+                         groups=all_groups)
 
 # ========== COLLECTION ROUTES ==========
 
@@ -117,7 +142,6 @@ def create_collection():
         flash('Collection name is required!', 'error')
         return redirect(url_for('dashboard'))
     
-    # Create new collection
     new_collection = Collection(
         user_id=current_user.user_id,
         collection_name=collection_name,
@@ -136,7 +160,6 @@ def create_collection():
 def delete_collection(collection_id):
     collection = Collection.query.get_or_404(collection_id)
     
-    # Security check - make sure user owns this
     if collection.user_id != current_user.user_id:
         flash('You do not have permission to delete this collection.', 'error')
         return redirect(url_for('dashboard'))
@@ -153,15 +176,21 @@ def delete_collection(collection_id):
 def view_collection(collection_id):
     collection = Collection.query.get_or_404(collection_id)
     
-    # Make sure user owns this collection
     if collection.user_id != current_user.user_id:
         flash('You do not have permission to view this collection.', 'error')
         return redirect(url_for('dashboard'))
     
-    # Get all task lists for this collection
     task_lists = TaskList.query.filter_by(collection_id=collection_id).order_by(TaskList.created_at.desc()).all()
     
-    return render_template('collection.html', collection=collection, task_lists=task_lists)
+    # Get ALL groups where current user is a member
+    user_groups = db.session.query(Group).join(GroupMember).filter(
+        GroupMember.user_id == current_user.user_id
+    ).all()
+    
+    return render_template('collection.html', 
+                         collection=collection, 
+                         task_lists=task_lists,
+                         user_groups=user_groups)
 
 
 # ========== TASK LIST ROUTES ==========
@@ -171,7 +200,6 @@ def view_collection(collection_id):
 def create_task_list(collection_id):
     collection = Collection.query.get_or_404(collection_id)
     
-    # Check user owns the collection
     if collection.user_id != current_user.user_id:
         flash('You do not have permission to modify this collection.', 'error')
         return redirect(url_for('dashboard'))
@@ -183,7 +211,6 @@ def create_task_list(collection_id):
         flash('Task list name is required!', 'error')
         return redirect(url_for('view_collection', collection_id=collection_id))
     
-    # Create the task list
     new_task_list = TaskList(
         collection_id=collection_id,
         list_name=list_name,
@@ -197,13 +224,61 @@ def create_task_list(collection_id):
     return redirect(url_for('view_collection', collection_id=collection_id))
 
 
+@app.route('/tasklist/share/<int:task_list_id>', methods=['POST'])
+@login_required
+def share_task_list(task_list_id):
+    task_list = TaskList.query.get_or_404(task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    if collection.user_id != current_user.user_id:
+        flash('Only the owner can share this task list.', 'error')
+        return redirect(url_for('view_collection', collection_id=collection.collection_id))
+    
+    group_id = request.form.get('group_id')
+    
+    existing = SharedTaskList.query.filter_by(task_list_id=task_list_id, group_id=group_id).first()
+    if existing:
+        flash('Task list is already shared with this group!', 'error')
+        return redirect(url_for('view_collection', collection_id=collection.collection_id))
+    
+    share = SharedTaskList(
+        task_list_id=task_list_id,
+        group_id=group_id,
+        shared_by_user_id=current_user.user_id
+    )
+    
+    db.session.add(share)
+    db.session.commit()
+    
+    flash('Task list shared successfully!', 'success')
+    return redirect(url_for('view_collection', collection_id=collection.collection_id))
+
+
+@app.route('/tasklist/unshare/<int:task_list_id>/<int:group_id>', methods=['POST'])
+@login_required
+def unshare_task_list(task_list_id, group_id):
+    task_list = TaskList.query.get_or_404(task_list_id)
+    collection = Collection.query.get(task_list.collection_id)
+    
+    if collection.user_id != current_user.user_id:
+        flash('Only the owner can unshare this task list.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    share = SharedTaskList.query.filter_by(task_list_id=task_list_id, group_id=group_id).first()
+    if share:
+        db.session.delete(share)
+        db.session.commit()
+        flash('Task list unshared successfully!', 'success')
+    
+    return redirect(url_for('view_collection', collection_id=collection.collection_id))
+
+
 @app.route('/tasklist/delete/<int:task_list_id>', methods=['POST'])
 @login_required
 def delete_task_list(task_list_id):
     task_list = TaskList.query.get_or_404(task_list_id)
     collection = Collection.query.get(task_list.collection_id)
     
-    # Security check
     if collection.user_id != current_user.user_id:
         flash('You do not have permission to delete this task list.', 'error')
         return redirect(url_for('dashboard'))
@@ -222,12 +297,12 @@ def view_task_list(task_list_id):
     task_list = TaskList.query.get_or_404(task_list_id)
     collection = Collection.query.get(task_list.collection_id)
     
-    # Security check
-    if collection.user_id != current_user.user_id:
+    if not user_has_access_to_task_list(current_user.user_id, task_list_id):
         flash('You do not have permission to view this task list.', 'error')
         return redirect(url_for('dashboard'))
     
-    # Get tasks organized by status
+    is_owner = (collection.user_id == current_user.user_id)
+    
     todo_tasks = Task.query.filter_by(task_list_id=task_list_id, status='todo').order_by(Task.created_at.desc()).all()
     doing_tasks = Task.query.filter_by(task_list_id=task_list_id, status='doing').order_by(Task.created_at.desc()).all()
     completed_tasks = Task.query.filter_by(task_list_id=task_list_id, status='completed').order_by(Task.completed_at.desc()).all()
@@ -237,7 +312,8 @@ def view_task_list(task_list_id):
                          collection=collection,
                          todo_tasks=todo_tasks,
                          doing_tasks=doing_tasks,
-                         completed_tasks=completed_tasks)
+                         completed_tasks=completed_tasks,
+                         is_owner=is_owner)
 
 
 # ========== TASK ROUTES ==========
@@ -245,11 +321,7 @@ def view_task_list(task_list_id):
 @app.route('/tasklist/<int:task_list_id>/create_task', methods=['POST'])
 @login_required
 def create_task(task_list_id):
-    task_list = TaskList.query.get_or_404(task_list_id)
-    collection = Collection.query.get(task_list.collection_id)
-    
-    # Security check
-    if collection.user_id != current_user.user_id:
+    if not user_has_access_to_task_list(current_user.user_id, task_list_id):
         flash('You do not have permission to add tasks here.', 'error')
         return redirect(url_for('dashboard'))
     
@@ -260,7 +332,6 @@ def create_task(task_list_id):
         flash('Task name is required!', 'error')
         return redirect(url_for('view_task_list', task_list_id=task_list_id))
     
-    # Create the task (defaults to 'todo' status)
     new_task = Task(
         task_list_id=task_list_id,
         task_name=task_name,
@@ -279,11 +350,8 @@ def create_task(task_list_id):
 @login_required
 def edit_task(task_id):
     task = Task.query.get_or_404(task_id)
-    task_list = TaskList.query.get(task.task_list_id)
-    collection = Collection.query.get(task_list.collection_id)
     
-    # Security check
-    if collection.user_id != current_user.user_id:
+    if not user_has_access_to_task_list(current_user.user_id, task.task_list_id):
         flash('You do not have permission to edit this task.', 'error')
         return redirect(url_for('dashboard'))
     
@@ -294,7 +362,6 @@ def edit_task(task_id):
         flash('Task name is required!', 'error')
         return redirect(url_for('view_task_list', task_list_id=task.task_list_id))
     
-    # Update the task
     task.task_name = task_name
     task.description = description
     db.session.commit()
@@ -307,24 +374,21 @@ def edit_task(task_id):
 @login_required
 def move_task(task_id, status):
     task = Task.query.get_or_404(task_id)
-    task_list = TaskList.query.get(task.task_list_id)
-    collection = Collection.query.get(task_list.collection_id)
     
-    # Security check
-    if collection.user_id != current_user.user_id:
+    if not user_has_access_to_task_list(current_user.user_id, task.task_list_id):
         return jsonify({'error': 'Unauthorized'}), 403
     
-    # Valid statuses
     if status not in ['todo', 'doing', 'completed']:
         return jsonify({'error': 'Invalid status'}), 400
     
     task.status = status
     
-    # Set completed_at timestamp if moving to completed
     if status == 'completed':
         task.completed_at = datetime.utcnow()
+        task.completed_by_user_id = current_user.user_id
     else:
         task.completed_at = None
+        task.completed_by_user_id = None
     
     db.session.commit()
     
@@ -335,11 +399,8 @@ def move_task(task_id, status):
 @login_required
 def delete_task(task_id):
     task = Task.query.get_or_404(task_id)
-    task_list = TaskList.query.get(task.task_list_id)
-    collection = Collection.query.get(task_list.collection_id)
     
-    # Security check
-    if collection.user_id != current_user.user_id:
+    if not user_has_access_to_task_list(current_user.user_id, task.task_list_id):
         flash('You do not have permission to delete this task.', 'error')
         return redirect(url_for('dashboard'))
     
@@ -349,6 +410,145 @@ def delete_task(task_id):
     
     flash('Task deleted successfully!', 'success')
     return redirect(url_for('view_task_list', task_list_id=task_list_id))
+
+
+# ========== GROUP ROUTES ==========
+
+@app.route('/group/create', methods=['POST'])
+@login_required
+def create_group():
+    group_name = request.form.get('group_name')
+    description = request.form.get('description')
+    
+    if not group_name:
+        flash('Group name is required!', 'error')
+        return redirect(url_for('dashboard'))
+    
+    new_group = Group(
+        group_name=group_name,
+        description=description,
+        leader_id=current_user.user_id
+    )
+    
+    db.session.add(new_group)
+    db.session.commit()
+    
+    leader_member = GroupMember(
+        group_id=new_group.group_id,
+        user_id=current_user.user_id,
+        role='leader'
+    )
+    
+    db.session.add(leader_member)
+    db.session.commit()
+    
+    flash('Group created successfully!', 'success')
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/group/<int:group_id>')
+@login_required
+def view_group(group_id):
+    group = Group.query.get_or_404(group_id)
+    
+    is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.user_id).first()
+    
+    if not is_member:
+        flash('You are not a member of this group.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    members = db.session.query(User, GroupMember).join(GroupMember).filter(
+        GroupMember.group_id == group_id
+    ).all()
+    
+    is_leader = (group.leader_id == current_user.user_id)
+    
+    member_ids = [m.user_id for _, m in members]
+    available_users = User.query.filter(User.user_id.notin_(member_ids)).all()
+    
+    shared_task_lists = SharedTaskList.query.filter_by(group_id=group_id).all()
+    
+    # Build the list with all the info we need
+    shared_lists = []
+    for share in shared_task_lists:
+        task_list = TaskList.query.get(share.task_list_id)
+        collection = Collection.query.get(task_list.collection_id)
+        shared_by_user = User.query.get(share.shared_by_user_id)
+        shared_lists.append((task_list, share, collection, shared_by_user))
+    
+    return render_template('group.html', 
+                         group=group, 
+                         members=members,
+                         is_leader=is_leader,
+                         available_users=available_users,
+                         shared_lists=shared_lists)
+
+
+@app.route('/group/<int:group_id>/add_member', methods=['POST'])
+@login_required
+def add_group_member(group_id):
+    group = Group.query.get_or_404(group_id)
+    
+    if group.leader_id != current_user.user_id:
+        flash('Only the group leader can add members.', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    user_id = request.form.get('user_id')
+    
+    existing = GroupMember.query.filter_by(group_id=group_id, user_id=user_id).first()
+    if existing:
+        flash('User is already a member!', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    new_member = GroupMember(
+        group_id=group_id,
+        user_id=user_id,
+        role='member'
+    )
+    
+    db.session.add(new_member)
+    db.session.commit()
+    
+    flash('Member added successfully!', 'success')
+    return redirect(url_for('view_group', group_id=group_id))
+
+
+@app.route('/group/<int:group_id>/remove_member/<int:user_id>', methods=['POST'])
+@login_required
+def remove_group_member(group_id, user_id):
+    group = Group.query.get_or_404(group_id)
+    
+    if group.leader_id != current_user.user_id:
+        flash('Only the group leader can remove members.', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    if user_id == group.leader_id:
+        flash('Cannot remove the group leader!', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    member = GroupMember.query.filter_by(group_id=group_id, user_id=user_id).first()
+    if member:
+        db.session.delete(member)
+        db.session.commit()
+        flash('Member removed successfully!', 'success')
+    
+    return redirect(url_for('view_group', group_id=group_id))
+
+
+@app.route('/group/delete/<int:group_id>', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    group = Group.query.get_or_404(group_id)
+    
+    if group.leader_id != current_user.user_id:
+        flash('Only the group leader can delete the group.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    db.session.delete(group)
+    db.session.commit()
+    
+    flash('Group deleted successfully!', 'success')
+    return redirect(url_for('dashboard'))
 
 
 @app.route('/logout')
