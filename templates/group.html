@@ -32,6 +32,70 @@
             </div>
         {% endif %}
 
+        <!-- Progress Dashboard - leader only -->
+        {% if is_leader %}
+        <section class="section">
+            <div class="section-header">
+                <h2>Progress Dashboard</h2>
+                <button class="create-btn" onclick="openAssignModal()">+ Assign Task List</button>
+            </div>
+
+            {% if member_progress %}
+                <div class="progress-grid">
+                    {% for mp in member_progress %}
+                        <div class="progress-card">
+                            <div class="progress-header">
+                                <div class="progress-user-info">
+                                    <h3>{{ mp.user.username }}</h3>
+                                    {% if mp.membership.role == 'leader' %}
+                                        <span class="role-badge leader-badge">Leader</span>
+                                    {% else %}
+                                        <span class="role-badge">Member</span>
+                                    {% endif %}
+                                </div>
+                                <span class="progress-percent">{{ mp.overall_percent }}%</span>
+                            </div>
+
+                            <div class="progress-bar-container">
+                                <div class="progress-bar" style="width: {{ mp.overall_percent }}%"></div>
+                            </div>
+                            <p class="progress-label">{{ mp.completed_tasks }} / {{ mp.total_tasks }} tasks completed</p>
+
+                            {% if mp.assigned_lists %}
+                                <div class="assigned-lists">
+                                    {% for item in mp.assigned_lists %}
+                                        <div class="assigned-list-item">
+                                            <div class="assigned-list-info">
+                                                <a href="{{ url_for('view_task_list', task_list_id=item.task_list.task_list_id) }}" class="list-link">
+                                                    {{ item.task_list.list_name }}
+                                                </a>
+                                                <span class="list-progress-text">{{ item.completed }}/{{ item.total }} tasks</span>
+                                            </div>
+                                            <div class="mini-progress-bar-container">
+                                                <div class="mini-progress-bar {% if item.percent == 100 %}complete{% endif %}" style="width: {{ item.percent }}%"></div>
+                                            </div>
+                                            {% for assignment in mp.membership.task_list_assignments %}
+                                                {% if assignment.task_list_id == item.task_list.task_list_id %}
+                                                    <form method="POST" action="{{ url_for('unassign_task_list', group_id=group.group_id, assignment_id=assignment.assignment_id) }}" style="display:inline;">
+                                                        <button type="submit" class="unassign-btn" onclick="return confirm('Unassign this list?')">✕</button>
+                                                    </form>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="no-assigned">No task lists assigned yet</p>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="no-items">No assignments yet. Click "+ Assign Task List" to get started.</p>
+            {% endif %}
+        </section>
+        {% endif %}
+
         <!-- Group Members Section -->
         <section class="section">
             <div class="section-header">
@@ -65,24 +129,56 @@
         <!-- Shared Task Lists Section -->
         <section class="section">
             <div class="section-header">
-                <h2>Shared Task Lists</h2>
+                <h2>{% if is_leader %}Shared Task Lists{% else %}My Assigned Task Lists{% endif %}</h2>
             </div>
             
-            {% if shared_lists %}
-                <div class="card-grid">
-                    {% for task_list, share, collection, shared_by_user in shared_lists %}
-                        <div class="card card-green" onclick="window.location.href='{{ url_for('view_task_list', task_list_id=task_list.task_list_id) }}'">
-                            <h3>{{ task_list.list_name }}</h3>
-                            <p>{{ task_list.description or 'No description' }}</p>
-                            <p class="task-count">{{ task_list.tasks|length }} tasks</p>
-                            <div class="shared-info">
-                                <span style="font-size: 12px; color: #666;">Shared by {{ shared_by_user.username }}</span>
+            {% if is_leader %}
+                <!-- Leader sees all shared lists -->
+                {% if shared_lists %}
+                    <div class="card-grid">
+                        {% for task_list, share, collection, shared_by_user in shared_lists %}
+                            <div class="card card-green" onclick="window.location.href='{{ url_for('view_task_list', task_list_id=task_list.task_list_id) }}'">
+                                <h3>{{ task_list.list_name }}</h3>
+                                <p>{{ task_list.description or 'No description' }}</p>
+                                <p class="task-count">{{ task_list.tasks|length }} tasks</p>
+                                <div class="shared-info">
+                                    <span style="font-size: 12px; color: #666;">Shared by {{ shared_by_user.username }}</span>
+                                </div>
                             </div>
-                        </div>
-                    {% endfor %}
-                </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-items">No task lists shared with this group yet.</p>
+                {% endif %}
             {% else %}
-                <p class="no-items">No task lists shared with this group yet.</p>
+                <!-- Members only see task lists assigned to them -->
+                {% set my_assignments = [] %}
+                {% for mp in member_progress %}
+                    {% if mp.user.user_id == current_user.user_id %}
+                        {% for item in mp.assigned_lists %}
+                            {% set _ = my_assignments.append(item) %}
+                        {% endfor %}
+                    {% endif %}
+                {% endfor %}
+                
+                {% if my_assignments %}
+                    <div class="card-grid">
+                        {% for item in my_assignments %}
+                            <div class="card card-green" onclick="window.location.href='{{ url_for('view_task_list', task_list_id=item.task_list.task_list_id) }}'">
+                                <h3>{{ item.task_list.list_name }}</h3>
+                                <p>{{ item.task_list.description or 'No description' }}</p>
+                                <div class="assignment-progress">
+                                    <div class="mini-progress-bar-container">
+                                        <div class="mini-progress-bar {% if item.percent == 100 %}complete{% endif %}" style="width: {{ item.percent }}%"></div>
+                                    </div>
+                                    <span class="list-progress-text">{{ item.completed }}/{{ item.total }} tasks done</span>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="no-items">You have no task lists assigned to you yet.</p>
+                {% endif %}
             {% endif %}
         </section>
     </main>
@@ -107,6 +203,37 @@
             </form>
         </div>
     </div>
+
+    <!-- Assign Task List Modal -->
+    <div id="assignModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeAssignModal()">&times;</span>
+            <h2>Assign Task List</h2>
+            <form method="POST" action="{{ url_for('assign_task_list', group_id=group.group_id) }}">
+                <div class="form-group">
+                    <label for="membership_id">Assign To</label>
+                    <select id="membership_id" name="membership_id" required>
+                        <option value="">Choose a member...</option>
+                        {% for user, membership in members %}
+                            {% if membership.role != 'leader' %}
+                                <option value="{{ membership.membership_id }}">{{ user.username }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="task_list_id">Task List</label>
+                    <select id="task_list_id" name="task_list_id" required>
+                        <option value="">Choose a task list...</option>
+                        {% for task_list in assignable_lists %}
+                            <option value="{{ task_list.task_list_id }}">{{ task_list.list_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn">Assign</button>
+            </form>
+        </div>
+    </div>
     {% endif %}
 
     <script>
@@ -118,11 +245,20 @@
             document.getElementById('addMemberModal').style.display = 'none';
         }
 
+        function openAssignModal() {
+            document.getElementById('assignModal').style.display = 'block';
+        }
+
+        function closeAssignModal() {
+            document.getElementById('assignModal').style.display = 'none';
+        }
+
         window.onclick = function(event) {
-            const modal = document.getElementById('addMemberModal');
-            if (event.target == modal) {
-                modal.style.display = 'none';
-            }
+            const memberModal = document.getElementById('addMemberModal');
+            const assignModal = document.getElementById('assignModal');
+            
+            if (event.target == memberModal) memberModal.style.display = 'none';
+            if (event.target == assignModal) assignModal.style.display = 'none';
         }
     </script>
 </body>

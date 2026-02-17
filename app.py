@@ -1,19 +1,16 @@
 from flask import Flask, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Collection, TaskList, Task, Group, GroupMember, SharedTaskList
+from models import db, User, Collection, TaskList, Task, Group, GroupMember, SharedTaskList, TaskListAssignment
 from datetime import datetime
 
 app = Flask(__name__)
 
-# Configuration
 app.config['SECRET_KEY'] = 'your-secret-key-change-this'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///taskmanager.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Set up database
 db.init_app(app)
 
-# Set up login manager for user authentication
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -22,12 +19,11 @@ login_manager.login_view = 'login'
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# Create tables if they don't exist
 with app.app_context():
     db.create_all()
 
 
-# Helper function to check if user has access to a task list
+# Helper - check if user has access to a task list
 def user_has_access_to_task_list(user_id, task_list_id):
     task_list = TaskList.query.get(task_list_id)
     if not task_list:
@@ -39,13 +35,16 @@ def user_has_access_to_task_list(user_id, task_list_id):
     if collection.user_id == user_id:
         return True
     
-    # Check if shared with any group the user is in
-    shared = db.session.query(SharedTaskList).join(GroupMember).filter(
-        SharedTaskList.task_list_id == task_list_id,
+    # Check if this list is specifically assigned to the user
+    assigned = GroupMember.query.filter(
         GroupMember.user_id == user_id
+    ).join(
+        TaskListAssignment, TaskListAssignment.membership_id == GroupMember.membership_id
+    ).filter(
+        TaskListAssignment.task_list_id == task_list_id
     ).first()
     
-    return shared is not None
+    return assigned is not None
 
 
 # ========== ROUTES ==========
@@ -124,11 +123,12 @@ def dashboard():
     ).all()
     
     all_groups = owned_groups + member_groups
-        
+    
     return render_template('dashboard.html', 
                          username=current_user.username, 
                          collections=collections,
                          groups=all_groups)
+
 
 # ========== COLLECTION ROUTES ==========
 
@@ -182,7 +182,7 @@ def view_collection(collection_id):
     
     task_lists = TaskList.query.filter_by(collection_id=collection_id).order_by(TaskList.created_at.desc()).all()
     
-    # Get ALL groups where current user is a member
+    # Get all groups the user is in for sharing
     user_groups = db.session.query(Group).join(GroupMember).filter(
         GroupMember.user_id == current_user.user_id
     ).all()
@@ -303,6 +303,23 @@ def view_task_list(task_list_id):
     
     is_owner = (collection.user_id == current_user.user_id)
     
+    # Check if this list is assigned to the current user specifically
+    assigned_to_me = False
+    if not is_owner:
+        my_membership = GroupMember.query.filter(
+            GroupMember.user_id == current_user.user_id
+        ).join(
+            TaskListAssignment, TaskListAssignment.membership_id == GroupMember.membership_id
+        ).filter(
+            TaskListAssignment.task_list_id == task_list_id
+        ).first()
+        assigned_to_me = my_membership is not None
+    
+    # Owner sees everything, assigned member sees their list, others get blocked
+    if not is_owner and not assigned_to_me:
+        flash('This task list has not been assigned to you.', 'error')
+        return redirect(url_for('dashboard'))
+    
     todo_tasks = Task.query.filter_by(task_list_id=task_list_id, status='todo').order_by(Task.created_at.desc()).all()
     doing_tasks = Task.query.filter_by(task_list_id=task_list_id, status='doing').order_by(Task.created_at.desc()).all()
     completed_tasks = Task.query.filter_by(task_list_id=task_list_id, status='completed').order_by(Task.completed_at.desc()).all()
@@ -313,7 +330,8 @@ def view_task_list(task_list_id):
                          todo_tasks=todo_tasks,
                          doing_tasks=doing_tasks,
                          completed_tasks=completed_tasks,
-                         is_owner=is_owner)
+                         is_owner=is_owner,
+                         assigned_to_me=assigned_to_me)
 
 
 # ========== TASK ROUTES ==========
@@ -452,23 +470,21 @@ def view_group(group_id):
     group = Group.query.get_or_404(group_id)
     
     is_member = GroupMember.query.filter_by(group_id=group_id, user_id=current_user.user_id).first()
-    
     if not is_member:
         flash('You are not a member of this group.', 'error')
         return redirect(url_for('dashboard'))
     
-    members = db.session.query(User, GroupMember).join(GroupMember).filter(
-        GroupMember.group_id == group_id
-    ).all()
+    members = db.session.query(User, GroupMember).join(
+        GroupMember, User.user_id == GroupMember.user_id
+    ).filter(GroupMember.group_id == group_id).all()
     
     is_leader = (group.leader_id == current_user.user_id)
     
     member_ids = [m.user_id for _, m in members]
     available_users = User.query.filter(User.user_id.notin_(member_ids)).all()
     
+    # Get shared task lists
     shared_task_lists = SharedTaskList.query.filter_by(group_id=group_id).all()
-    
-    # Build the list with all the info we need
     shared_lists = []
     for share in shared_task_lists:
         task_list = TaskList.query.get(share.task_list_id)
@@ -476,12 +492,60 @@ def view_group(group_id):
         shared_by_user = User.query.get(share.shared_by_user_id)
         shared_lists.append((task_list, share, collection, shared_by_user))
     
+    # Build progress data for each member
+    # Build progress data - only include members with assigned task lists
+    member_progress = []
+    for user, membership in members:
+        assignments = TaskListAssignment.query.filter_by(membership_id=membership.membership_id).all()
+        
+        # Skip this member if they have no assignments
+        if not assignments:
+            continue
+        
+        assigned_lists = []
+        total_tasks = 0
+        completed_tasks = 0
+        
+        for assignment in assignments:
+            task_list = TaskList.query.get(assignment.task_list_id)
+            all_tasks = Task.query.filter_by(task_list_id=task_list.task_list_id).all()
+            done = Task.query.filter_by(task_list_id=task_list.task_list_id, status='completed').count()
+            total = len(all_tasks)
+            
+            total_tasks += total
+            completed_tasks += done
+            
+            assigned_lists.append({
+                'task_list': task_list,
+                'total': total,
+                'completed': done,
+                'percent': int((done / total * 100) if total > 0 else 0)
+            })
+        
+        overall_percent = int((completed_tasks / total_tasks * 100) if total_tasks > 0 else 0)
+        
+        member_progress.append({
+            'user': user,
+            'membership': membership,
+            'assigned_lists': assigned_lists,
+            'total_tasks': total_tasks,
+            'completed_tasks': completed_tasks,
+            'overall_percent': overall_percent
+        })
+    
+    # Get shared lists that can be assigned (for the assign modal)
+    assignable_lists = []
+    for task_list, share, collection, shared_by_user in shared_lists:
+        assignable_lists.append(task_list)
+    
     return render_template('group.html', 
                          group=group, 
                          members=members,
                          is_leader=is_leader,
                          available_users=available_users,
-                         shared_lists=shared_lists)
+                         shared_lists=shared_lists,
+                         member_progress=member_progress,
+                         assignable_lists=assignable_lists)
 
 
 @app.route('/group/<int:group_id>/add_member', methods=['POST'])
@@ -532,6 +596,61 @@ def remove_group_member(group_id, user_id):
         db.session.commit()
         flash('Member removed successfully!', 'success')
     
+    return redirect(url_for('view_group', group_id=group_id))
+
+
+@app.route('/group/<int:group_id>/assign_list', methods=['POST'])
+@login_required
+def assign_task_list(group_id):
+    group = Group.query.get_or_404(group_id)
+    
+    # Only leader can assign
+    if group.leader_id != current_user.user_id:
+        flash('Only the group leader can assign task lists.', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    task_list_id = request.form.get('task_list_id')
+    membership_id = request.form.get('membership_id')
+    
+    # Check if already assigned
+    existing = TaskListAssignment.query.filter_by(
+        task_list_id=task_list_id,
+        membership_id=membership_id
+    ).first()
+    
+    if existing:
+        flash('This task list is already assigned to that member!', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    # Create the assignment
+    assignment = TaskListAssignment(
+        task_list_id=task_list_id,
+        membership_id=membership_id,
+        assigned_by_user_id=current_user.user_id
+    )
+    
+    db.session.add(assignment)
+    db.session.commit()
+    
+    flash('Task list assigned successfully!', 'success')
+    return redirect(url_for('view_group', group_id=group_id))
+
+
+@app.route('/group/<int:group_id>/unassign_list/<int:assignment_id>', methods=['POST'])
+@login_required
+def unassign_task_list(group_id, assignment_id):
+    group = Group.query.get_or_404(group_id)
+    
+    # Only leader can unassign
+    if group.leader_id != current_user.user_id:
+        flash('Only the group leader can unassign task lists.', 'error')
+        return redirect(url_for('view_group', group_id=group_id))
+    
+    assignment = TaskListAssignment.query.get_or_404(assignment_id)
+    db.session.delete(assignment)
+    db.session.commit()
+    
+    flash('Task list unassigned successfully!', 'success')
     return redirect(url_for('view_group', group_id=group_id))
 
 

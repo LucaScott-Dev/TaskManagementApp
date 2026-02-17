@@ -59,7 +59,6 @@ header h1 {
     padding: 40px 20px;
 }
 
-/* Section headers */
 .section {
     margin-bottom: 50px;
 }
@@ -123,18 +122,9 @@ header h1 {
     font-size: 14px;
 }
 
-/* Different colored cards */
-.card-blue {
-    background-color: #a8d5f7;
-}
-
-.card-green {
-    background-color: #b8e6c9;
-}
-
-.card-pink {
-    background-color: #f7c5d5;
-}
+.card-blue { background-color: #a8d5f7; }
+.card-green { background-color: #b8e6c9; }
+.card-pink { background-color: #f7c5d5; }
 
 /* ========== MESSAGES ========== */
 .alert {
@@ -163,7 +153,6 @@ header h1 {
     border: 1px solid #bee5eb;
 }
 
-/* Empty state message */
 .no-items {
     color: #999;
     font-style: italic;
@@ -190,9 +179,7 @@ header h1 {
     font-size: 12px;
 }
 
-.delete-btn:hover {
-    background-color: #c82333;
-}
+.delete-btn:hover { background-color: #c82333; }
 
 .share-btn {
     background-color: #007bff;
@@ -204,11 +191,9 @@ header h1 {
     font-size: 12px;
 }
 
-.share-btn:hover {
-    background-color: #0056b3;
-}
+.share-btn:hover { background-color: #0056b3; }
 
-/* ========== SHARING INDICATORS ========== */
+/* ========== SHARING ========== */
 .shared-indicator {
     margin-top: 10px;
     padding: 6px;
@@ -216,21 +201,13 @@ header h1 {
     border-radius: 4px;
 }
 
-.shared-indicator span {
-    font-size: 12px;
-    color: #007bff;
-}
+.shared-indicator span { font-size: 12px; color: #007bff; }
 
 .shared-info {
     margin-top: 10px;
     padding: 6px;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0,0,0,0.05);
     border-radius: 4px;
-}
-
-.shared-info span {
-    font-size: 12px;
-    color: #666;
 }
 
 .shared-group-item {
@@ -253,9 +230,7 @@ header h1 {
     font-size: 12px;
 }
 
-.unshare-btn:hover {
-    background-color: #5a6268;
-}
+.unshare-btn:hover { background-color: #5a6268; }
 
 /* ========== MODAL ========== */
 .modal {
@@ -287,13 +262,9 @@ header h1 {
     cursor: pointer;
 }
 
-.close:hover {
-    color: #000;
-}
+.close:hover { color: #000; }
 
-.modal-content .form-group {
-    margin-bottom: 20px;
-}
+.modal-content .form-group { margin-bottom: 20px; }
 
 .modal-content label {
     display: block;
@@ -331,9 +302,7 @@ header h1 {
     cursor: pointer;
 }
 
-.modal-content .btn:hover {
-    background-color: #555;
-}
+.modal-content .btn:hover { background-color: #555; }
 
 /* ========== COLLECTION PAGE ========== */
 .collection-description {
@@ -399,10 +368,155 @@ header h1 {
     color: #fff;
 }
 
+/* ========== PROGRESS DASHBOARD ========== */
+.progress-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.progress-card {
+    background-color: white;
+    border-radius: 10px;
+    padding: 25px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.progress-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-user-info h3 {
+    font-size: 18px;
+    color: #333;
+}
+
+.progress-percent {
+    font-size: 24px;
+    font-weight: bold;
+    color: #28a745;
+}
+
+/* Overall progress bar */
+.progress-bar-container {
+    background-color: #e8e8e8;
+    border-radius: 10px;
+    height: 10px;
+    margin-bottom: 8px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #28a745;
+    border-radius: 10px;
+    transition: width 0.5s ease;
+    min-width: 0;
+}
+
+.progress-label {
+    font-size: 13px;
+    color: #999;
+    margin-bottom: 20px;
+}
+
+/* Assigned lists within progress card */
+.assigned-lists {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 15px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 15px;
+}
+
+.assigned-list-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.assigned-list-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.list-link {
+    font-size: 14px;
+    color: #333;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.list-link:hover {
+    color: #007bff;
+    text-decoration: underline;
+}
+
+.list-progress-text {
+    font-size: 12px;
+    color: #999;
+}
+
+/* Mini progress bar per task list */
+.mini-progress-bar-container {
+    background-color: #e8e8e8;
+    border-radius: 4px;
+    height: 6px;
+    overflow: hidden;
+}
+
+.mini-progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.mini-progress-bar.complete {
+    background-color: #28a745;
+}
+
+.no-assigned {
+    font-size: 13px;
+    color: #999;
+    font-style: italic;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #f0f0f0;
+}
+
+/* Unassign button */
+.unassign-btn {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0 4px;
+    align-self: flex-end;
+}
+
+.unassign-btn:hover { color: #c82333; }
+
 /* ========== RESPONSIVE ========== */
 @media (max-width: 768px) {
     .card-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+    
+    .progress-grid {
+        grid-template-columns: 1fr;
     }
     
     .header-content {

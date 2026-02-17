@@ -12,27 +12,19 @@ class User(UserMixin, db.Model):
     user_id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
-    user_role = db.Column(db.String(20), default='user')  # might add admin later
+    user_role = db.Column(db.String(20), default='user')
     
-    # Links user to their collections
     collections = db.relationship('Collection', backref='owner', lazy=True, cascade='all, delete-orphan')
-    
-    # Links user to groups they own
     owned_groups = db.relationship('Group', backref='leader', lazy=True, foreign_keys='Group.leader_id')
-    
-    # Links user to group memberships
     group_memberships = db.relationship('GroupMember', backref='user', lazy=True, cascade='all, delete-orphan')
     
     def set_password(self, password):
-        # Hash password instead of storing plain text
         self.password_hash = generate_password_hash(password)
     
     def check_password(self, password):
-        # Check if password matches the hash
         return check_password_hash(self.password_hash, password)
     
     def get_id(self):
-        # Flask-Login needs this to work properly
         return str(self.user_id)
     
     def __repr__(self):
@@ -49,7 +41,6 @@ class Collection(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Each collection can have multiple task lists
     task_lists = db.relationship('TaskList', backref='collection', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
@@ -66,11 +57,11 @@ class TaskList(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    # Each task list can have multiple tasks
     tasks = db.relationship('Task', backref='task_list', lazy=True, cascade='all, delete-orphan')
-    
-    # Track which groups this task list is shared with
     shared_with_groups = db.relationship('SharedTaskList', backref='task_list', lazy=True, cascade='all, delete-orphan')
+    
+    # Track which members this list is assigned to
+    assignments = db.relationship('TaskListAssignment', backref='task_list', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
         return f'<TaskList {self.list_name}>'
@@ -88,9 +79,8 @@ class Task(db.Model):
     due_date = db.Column(db.DateTime)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     completed_at = db.Column(db.DateTime)
-    completed_by_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'))  # Track who completed it
+    completed_by_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'))
     
-    # Relationship to user who completed it
     completed_by = db.relationship('User', foreign_keys=[completed_by_user_id])
     
     def __repr__(self):
@@ -106,10 +96,7 @@ class Group(db.Model):
     leader_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Group members
     members = db.relationship('GroupMember', backref='group', lazy=True, cascade='all, delete-orphan')
-    
-    # Shared task lists
     shared_task_lists = db.relationship('SharedTaskList', backref='group', lazy=True, cascade='all, delete-orphan')
     
     def __repr__(self):
@@ -125,6 +112,9 @@ class GroupMember(db.Model):
     role = db.Column(db.String(20), default='member')  # leader, member
     joined_at = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # Task list assignments for this member
+    task_list_assignments = db.relationship('TaskListAssignment', backref='member', lazy=True, cascade='all, delete-orphan')
+    
     def __repr__(self):
         return f'<GroupMember user_id={self.user_id} group_id={self.group_id}>'
 
@@ -138,8 +128,23 @@ class SharedTaskList(db.Model):
     shared_at = db.Column(db.DateTime, default=datetime.utcnow)
     shared_by_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
     
-    # Who shared it
     shared_by = db.relationship('User', foreign_keys=[shared_by_user_id])
     
     def __repr__(self):
         return f'<SharedTaskList task_list_id={self.task_list_id} group_id={self.group_id}>'
+
+
+class TaskListAssignment(db.Model):
+    __tablename__ = 'task_list_assignment'
+    
+    assignment_id = db.Column(db.Integer, primary_key=True)
+    task_list_id = db.Column(db.Integer, db.ForeignKey('task_list.task_list_id'), nullable=False)
+    membership_id = db.Column(db.Integer, db.ForeignKey('group_member.membership_id'), nullable=False)
+    assigned_by_user_id = db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Who assigned it
+    assigned_by = db.relationship('User', foreign_keys=[assigned_by_user_id])
+    
+    def __repr__(self):
+        return f'<TaskListAssignment task_list_id={self.task_list_id} membership_id={self.membership_id}>'
