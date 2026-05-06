@@ -23,7 +23,6 @@ with app.app_context():
     db.create_all()
 
 
-# Helper - check if user has access to a task list
 def user_has_access_to_task_list(user_id, task_list_id):
     task_list = TaskList.query.get(task_list_id)
     if not task_list:
@@ -31,11 +30,9 @@ def user_has_access_to_task_list(user_id, task_list_id):
     
     collection = Collection.query.get(task_list.collection_id)
     
-    # Owner always has access
     if collection.user_id == user_id:
         return True
     
-    # Check if this list is specifically assigned to the user
     assigned = GroupMember.query.filter(
         GroupMember.user_id == user_id
     ).join(
@@ -182,7 +179,6 @@ def view_collection(collection_id):
     
     task_lists = TaskList.query.filter_by(collection_id=collection_id).order_by(TaskList.created_at.desc()).all()
     
-    # Get all groups the user is in for sharing
     user_groups = db.session.query(Group).join(GroupMember).filter(
         GroupMember.user_id == current_user.user_id
     ).all()
@@ -303,7 +299,6 @@ def view_task_list(task_list_id):
     
     is_owner = (collection.user_id == current_user.user_id)
     
-    # Check if this list is assigned to the current user specifically
     assigned_to_me = False
     if not is_owner:
         my_membership = GroupMember.query.filter(
@@ -315,7 +310,6 @@ def view_task_list(task_list_id):
         ).first()
         assigned_to_me = my_membership is not None
     
-    # Owner sees everything, assigned member sees their list, others get blocked
     if not is_owner and not assigned_to_me:
         flash('This task list has not been assigned to you.', 'error')
         return redirect(url_for('dashboard'))
@@ -483,7 +477,6 @@ def view_group(group_id):
     member_ids = [m.user_id for _, m in members]
     available_users = User.query.filter(User.user_id.notin_(member_ids)).all()
     
-    # Get shared task lists
     shared_task_lists = SharedTaskList.query.filter_by(group_id=group_id).all()
     shared_lists = []
     for share in shared_task_lists:
@@ -492,13 +485,10 @@ def view_group(group_id):
         shared_by_user = User.query.get(share.shared_by_user_id)
         shared_lists.append((task_list, share, collection, shared_by_user))
     
-    # Build progress data for each member
-    # Build progress data - only include members with assigned task lists
     member_progress = []
     for user, membership in members:
         assignments = TaskListAssignment.query.filter_by(membership_id=membership.membership_id).all()
         
-        # Skip this member if they have no assignments
         if not assignments:
             continue
         
@@ -533,7 +523,6 @@ def view_group(group_id):
             'overall_percent': overall_percent
         })
     
-    # Get shared lists that can be assigned (for the assign modal)
     assignable_lists = []
     for task_list, share, collection, shared_by_user in shared_lists:
         assignable_lists.append(task_list)
@@ -604,7 +593,6 @@ def remove_group_member(group_id, user_id):
 def assign_task_list(group_id):
     group = Group.query.get_or_404(group_id)
     
-    # Only leader can assign
     if group.leader_id != current_user.user_id:
         flash('Only the group leader can assign task lists.', 'error')
         return redirect(url_for('view_group', group_id=group_id))
@@ -612,7 +600,6 @@ def assign_task_list(group_id):
     task_list_id = request.form.get('task_list_id')
     membership_id = request.form.get('membership_id')
     
-    # Check if already assigned
     existing = TaskListAssignment.query.filter_by(
         task_list_id=task_list_id,
         membership_id=membership_id
@@ -622,7 +609,6 @@ def assign_task_list(group_id):
         flash('This task list is already assigned to that member!', 'error')
         return redirect(url_for('view_group', group_id=group_id))
     
-    # Create the assignment
     assignment = TaskListAssignment(
         task_list_id=task_list_id,
         membership_id=membership_id,
@@ -641,7 +627,6 @@ def assign_task_list(group_id):
 def unassign_task_list(group_id, assignment_id):
     group = Group.query.get_or_404(group_id)
     
-    # Only leader can unassign
     if group.leader_id != current_user.user_id:
         flash('Only the group leader can unassign task lists.', 'error')
         return redirect(url_for('view_group', group_id=group_id))
@@ -677,6 +662,32 @@ def logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('login'))
 
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    errors = {}
+
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+
+        if not current_user.check_password(current_password):
+            errors['current_password'] = 'Current password is incorrect'
+
+        if len(new_password) < 8:
+            errors['new_password'] = 'Password must be at least 8 characters'
+
+        if new_password != confirm_password:
+            errors['confirm_password'] = 'Passwords do not match'
+
+        if not errors:
+            current_user.set_password(new_password)
+            db.session.commit()
+            flash('Password updated successfully!', 'success')
+            return redirect(url_for('profile'))
+
+    return render_template('profile.html', errors=errors)
 
 if __name__ == '__main__':
     app.run(debug=True)

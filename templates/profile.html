@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - Task Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</head>
+<body>
+    <header>
+        <div class="header-content">
+            <h1>My Profile</h1>
+            <div class="user-menu">
+                <a href="{{ url_for('dashboard') }}" class="logout-btn">← Back to Dashboard</a>
+                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <section class="section">
+            <div class="collection-description">
+                <p><strong>Username:</strong> {{ current_user.username }}</p>
+            </div>
+
+            <h2 style="margin-bottom: 20px;">Change Password</h2>
+
+            <div style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 500px;">
+                <form method="POST" action="{{ url_for('profile') }}">
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Current Password</label>
+                        <input type="password" name="current_password" required
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        {% if errors.current_password %}
+                            <span style="color: #d32f2f; font-size: 13px;">{{ errors.current_password }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">New Password</label>
+                        <input type="password" name="new_password" minlength="8" required
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        {% if errors.new_password %}
+                            <span style="color: #d32f2f; font-size: 13px;">{{ errors.new_password }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 20px;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: bold;">Confirm New Password</label>
+                        <input type="password" name="confirm_password" minlength="8" required
+                               style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                        {% if errors.confirm_password %}
+                            <span style="color: #d32f2f; font-size: 13px;">{{ errors.confirm_password }}</span>
+                        {% endif %}
+                    </div>
+
+                    <button type="submit" class="create-btn">Update Password</button>
+                </form>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
